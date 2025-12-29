@@ -46,10 +46,10 @@ resource "aws_lb_target_group" "alb" {
 
   health_check {
     healthy_threshold   = "3"
-    interval            = "90"
+    interval            = "30"
     protocol            = "HTTP"
     matcher             = "200-299"
-    timeout             = "20"
+    timeout             = "5"
     path                = "/login"
     unhealthy_threshold = "2"
   }

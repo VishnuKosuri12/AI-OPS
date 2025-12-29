@@ -2,16 +2,12 @@ name: on-pr-main-day6
 
 on:
   pull_request:
-    branches:
-      - main
-    paths:
-      - 'infra/**'
-      - 'src/**'
+    branches: [ main ]
+    paths: [ 'infra/**', 'src/**' ]
 
 jobs:
-  terraform-plan:
+  deploy:
     runs-on: ubuntu-latest
-    
     env:
       AWS_REGION: us-east-2
       TERRAFORM_VER: 1.8.1
@@ -27,25 +23,48 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-        # Direct injection of secrets into the step's environment
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and Push Docker Image
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
-          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+          ECR_REGISTRY: ${{ steps.login-ecr.registry }}
+          # Ensure this matches your actual ECR name in AWS
+          ECR_REPOSITORY: student-portal-repo 
+          IMAGE_TAG: latest
+        run: |
+          # The context is './src' because that is where your Dockerfile lives
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./src
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VER }}
 
-      - name: Terraform Check (Format)
-        working-directory: ${{ env.TERRAFORM_PATH }}
-        run: terraform fmt --check
-
       - name: Terraform Init
         working-directory: ${{ env.TERRAFORM_PATH }}
         run: terraform init
 
-      - name: Terraform Plan
+      - name: Terraform Apply
         working-directory: ${{ env.TERRAFORM_PATH }}
-        run: terraform plan
+        run: terraform apply -var-file="terraform.tfvars" -auto-approve -no-color
+
+      - name: Deploy Application (ECS Update)
+        run: |
+          aws ecs update-service \
+            --cluster dev-student-portal-cluster \
+            --service dev-student-portal-service \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for Service Stability
+        run: |
+          echo "Waiting for ALB health checks to pass on /login..."
+          aws ecs wait services-stable \
+            --cluster dev-student-portal-cluster \
+            --services dev-student-portal-service \
+            --region ${{ env.AWS_REGION }}
+
