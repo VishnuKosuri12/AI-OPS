@@ -11,17 +11,15 @@ on:
 jobs:
   terraform-plan:
     runs-on: ubuntu-latest
-
     env:
       AWS_REGION: us-east-2
-      TERRAFORM_VER: 1.5.0  # Note: 1.14.3 does not exist; 1.5.0 is stable
+      TERRAFORM_VER: 1.5.0
       TERRAFORM_PATH: infra
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # THIS IS THE MISSING HANDSHAKE STEP
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
