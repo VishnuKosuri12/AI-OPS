@@ -5,23 +5,29 @@ on:
     branches:
       - main
     paths:
-      - 'infra/**'  # Triggers only when terraform files change
-      - 'src/**'    # Triggers when application code changes
+      - 'infra/**'
+      - 'src/**'
 
 jobs:
   terraform-plan:
     runs-on: ubuntu-latest
 
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_REGION: us-east-2     # Updated to Ohio
-      TERRAFORM_VER: 1.14.3    # Updated to your local version
-      TERRAFORM_PATH: infra     # Updated to your actual folder name
+      AWS_REGION: us-east-2
+      TERRAFORM_VER: 1.5.0  # Note: 1.14.3 does not exist; 1.5.0 is stable
+      TERRAFORM_PATH: infra
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      # THIS IS THE MISSING HANDSHAKE STEP
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
