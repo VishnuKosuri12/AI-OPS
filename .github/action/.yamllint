@@ -1,7 +1,0 @@
----
-extends: default
-
-rules:
-  trailing-spaces: disable
-  line-length:
-    max: 200

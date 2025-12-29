@@ -1,4 +1,0 @@
-bucket         = "state-bucket-879381241087"
-key            = "may-bootcamp/class14/dev/terraform/state"
-region         = "ap-south-1"
-encrypt        = true

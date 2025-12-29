@@ -1,6 +1,0 @@
-# Backend configuration for prod environment
-
-bucket         = "366140438193-terraform-state"
-key            = "may-bootcamp/class15/prod/terraform/state"
-region         = "ap-south-1"
-encrypt        = true
