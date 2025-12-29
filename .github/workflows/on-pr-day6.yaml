@@ -1,4 +1,4 @@
-name: on-pr-main-day6
+name: ecs-fargate-deployment
 
 on:
   pull_request:
@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AWS_REGION: us-east-2
-      TERRAFORM_VER: 1.8.1
       TERRAFORM_PATH: infra
 
     steps:
@@ -28,43 +27,64 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and Push Docker Image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.registry }}
-          # Ensure this matches your actual ECR name in AWS
-          ECR_REPOSITORY: student-portal-repo 
-          IMAGE_TAG: latest
-        run: |
-          # The context is './src' because that is where your Dockerfile lives
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./src
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ env.TERRAFORM_VER }}
+          terraform_wrapper: false # This makes it easier to capture outputs
 
       - name: Terraform Init
         working-directory: ${{ env.TERRAFORM_PATH }}
         run: terraform init
 
-      - name: Terraform Apply
+      - name: Terraform Apply (Infrastructure First)
+        id: apply
         working-directory: ${{ env.TERRAFORM_PATH }}
         run: terraform apply -var-file="terraform.tfvars" -auto-approve -no-color
 
-      - name: Deploy Application (ECS Update)
+      - name: Build and Push Docker Image
         run: |
+          # 1. Capture the Registry URL from the Login step
+          REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          
+          # 2. Extract the REPO_NAME directly from Terraform Output
+          cd ${{ env.TERRAFORM_PATH }}
+          REPOSITORY=$(terraform output -raw ecr_repository_name)
+          cd ..
+          
+          IMAGE_TAG=latest
+          
+          echo "Targeting ECR Repo: $REPOSITORY"
+          
+          # 3. Build using the 'src' folder as context
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG ./src
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+
+      - name: Deploy Application (ECS Force Update)
+        run: |
+          # 4. Extract Cluster and Service names from Terraform Output
+          cd ${{ env.TERRAFORM_PATH }}
+          CLUSTER=$(terraform output -raw ecs_cluster_name)
+          SERVICE=$(terraform output -raw ecs_service_name)
+          cd ..
+          
+          echo "Updating Service $SERVICE in Cluster $CLUSTER"
+          
           aws ecs update-service \
-            --cluster dev-student-portal-cluster \
-            --service dev-student-portal-service \
+            --cluster $CLUSTER \
+            --service $SERVICE \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
       - name: Wait for Service Stability
         run: |
-          echo "Waiting for ALB health checks to pass on /login..."
+          cd ${{ env.TERRAFORM_PATH }}
+          CLUSTER=$(terraform output -raw ecs_cluster_name)
+          SERVICE=$(terraform output -raw ecs_service_name)
+          cd ..
+          
+          echo "Waiting for health checks to pass..."
           aws ecs wait services-stable \
-            --cluster dev-student-portal-cluster \
-            --services dev-student-portal-service \
+            --cluster $CLUSTER \
+            --services $SERVICE \
             --region ${{ env.AWS_REGION }}
-
+          echo "✅ Deployment Successful!"
