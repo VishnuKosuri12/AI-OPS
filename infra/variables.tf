@@ -16,7 +16,7 @@ variable "zone2" {
 
 variable "vpc_cidr" {
   description = "The CIDR block for the VPC"
- }
+}
 
 variable "environment" {
   description = "The environment in which the resources will be created"
