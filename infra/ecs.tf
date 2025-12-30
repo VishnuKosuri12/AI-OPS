@@ -1,19 +1,3 @@
-# 1. LOCALS BLOCK: Maps Terraform resources to Template placeholders
-locals {
-  student_portal_services_vars = {
-    container_name                = var.container_name
-    # Points to ecr.tf (resource "aws_ecr_repository" "main")
-    aws_ecr_repository            = aws_ecr_repository.main.repository_url
-    tag                           = var.tag
-    # FIXED: Points to cloudwatch.tf (resource "aws_cloudwatch_log_group" "ecs")
-    aws_cloudwatch_log_group_name = aws_cloudwatch_log_group.ecs.name
-    environment                   = var.environment
-    container_port                = 8000
-    # Points to rds.tf (resource "aws_secretsmanager_secret" "db_link")
-    db_link_arn                   = aws_secretsmanager_secret.db_link.arn
-  }
-}
-
 # Security Group for ECS
 resource "aws_security_group" "ecs" {
   name        = "${var.environment}-${var.app_name}-sg"
@@ -24,8 +8,8 @@ resource "aws_security_group" "ecs" {
     protocol        = "tcp"
     from_port       = 8000
     to_port         = 8000
-    # Ensure this matches your alb.tf security group resource name
-    security_groups = [aws_security_group.lb.id] 
+    # This correctly references the Security Group in alb.tf
+    security_groups = [aws_security_group.lb.id]
   }
 
   egress {
@@ -41,12 +25,6 @@ resource "aws_ecs_cluster" "main" {
   name = "${var.environment}-${var.app_name}-cluster"
 }
 
-# JSON Template Rendering
-data "template_file" "services" {
-  template = file("${path.module}/templates/student-portal.tpl")
-  vars     = local.student_portal_services_vars
-}
-
 # ECS Task Definition
 resource "aws_ecs_task_definition" "services" {
   family                   = "${var.environment}-${var.app_name}"
@@ -56,7 +34,9 @@ resource "aws_ecs_task_definition" "services" {
   cpu                      = var.student_portal_app_cpu
   memory                   = var.student_portal_app_memory
   requires_compatibilities = ["FARGATE"]
-  container_definitions    = data.template_file.services.rendered
+  
+  # This pulls the variables directly from your locals.tf file
+  container_definitions = templatefile("${path.module}/templates/student-portal.tpl", local.student_portal_services_vars)
 
   tags = {
     Environment = var.environment
@@ -86,6 +66,6 @@ resource "aws_ecs_service" "flask_app_service" {
     container_port   = 8000
   }
 
-  # Ensure the listener exists before the service tries to register with the TG
-  depends_on = [aws_lb_listener.http] 
+  # This ensures the Load Balancer is ready before the app tries to start
+  depends_on = [aws_lb_listener.http]
 }

@@ -1,18 +1,23 @@
 locals {
-
-  student_portals_services_vars = {
-    aws_ecr_repository            = aws_ecr_repository.student_portal_app.repository_url
+  student_portal_services_vars = {
+    # FIXED: Changed from student_portal_app to main
+    aws_ecr_repository            = aws_ecr_repository.main.repository_url
     tag                           = var.tag
     container_name                = var.container_name
     container_port                = var.container_port
     aws_cloudwatch_log_group_name = "/aws/ecs/${var.environment}-${var.app_name}"
-    db_link                       = "postgresql://${aws_db_instance.postgres.username}:${random_password.dbs_random_string.result}@${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}"
     environment                   = var.environment
-    db_host                       = aws_db_instance.postgres.address
+    
+    # FIXED: db_link_arn is what ecs.tf expects for the secrets block
+    db_link_arn                   = aws_secretsmanager_secret.db_link.arn
+    
+    # RDS Helpers (matching resource "aws_db_instance" "default" in rds.tf)
+    db_host                       = aws_db_instance.default.address
   }
 
   app_deploy_vars = {
-    IMAGE_REPO_NAME        = aws_ecr_repository.student_portal_app.repository_url
+    # FIXED: Changed from student_portal_app to main
+    IMAGE_REPO_NAME        = aws_ecr_repository.main.repository_url
     ECS_APP_CONTAINER_NAME = var.container_name
     ECS_TASK_DEFINITION    = "${var.environment}-${var.app_name}"
     ECS_SERVICE            = "${var.environment}-${var.app_name}-service"
@@ -30,8 +35,3 @@ resource "aws_secretsmanager_secret_version" "app_deploy_data_version" {
   secret_id     = aws_secretsmanager_secret.app_deploy_data.id
   secret_string = jsonencode(local.app_deploy_vars)
 }
-
-
-
-# "postgresql://${aws_db_instance.postgres.username}:${random_password.dbs_random_string.result}@${aws_db_instance.postgres.address}:${aws_db_instance.postgres.port}/${aws_db_instance.postgres.db_name}"
-# 'postgresqql://{userbanme}:{password}@{host}:{port}/{db_name}'

@@ -50,26 +50,29 @@ resource "aws_lb_target_group" "alb" {
     protocol            = "HTTP"
     matcher             = "200-299"
     timeout             = "5"
-    path                = "/login"
+    path                = "/login" # Ensure your Flask app has this route!
     unhealthy_threshold = "2"
   }
 }
 
-# http listener for alb
-resource "aws_lb_listener" "http_forward" {
+# FIXED NAME: Changed from http_forward to http
+resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.alb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.alb.arn
+    type = "redirect"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
   }
 }
 
-# create a https listenr   -> for alb
-
-resource "aws_lb_listener" "https_forward" {
+# FIXED NAME: Changed from https_forward to https
+resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.alb.arn
   port              = 443
   protocol          = "HTTPS"

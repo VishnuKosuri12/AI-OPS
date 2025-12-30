@@ -16,13 +16,14 @@ variable "zone2" {
 
 variable "vpc_cidr" {
   description = "The CIDR block for the VPC"
-  # Usually provided in terraform.tfvars or GitHub Secrets
+  type        = string
+  # No default provided here so it forces you to define it in terraform.tfvars
 }
 
 variable "subnet_cidr" {
   type = map(string)
   default = {
-    "private_1"   = "10.0.1.0/24" # Fixed typo: 'prvate' -> 'private'
+    "private_1"   = "10.0.1.0/24"
     "private_2"   = "10.0.2.0/24"
     "public_1"    = "10.0.3.0/24"
     "public_2"    = "10.0.4.0/24"
@@ -48,7 +49,8 @@ variable "app_name" {
 }
 
 variable "app_domain" {
-  default = "vishnukosuri.com"
+  description = "The domain name for the application"
+  default     = "vishnukosuri.com"
 }
 
 # --- DATABASE SETTINGS ---
@@ -62,7 +64,7 @@ variable "db_default_settings" {
     backup_retention_period = 0
     db_name                 = "postgres"
     ca_cert_name            = "rds-ca-rsa2048-g1"
-    db_admin_username       = "myadmin" # Matches what we put in rds.tf
+    db_admin_username       = "myadmin"
   }
 }
 
@@ -94,4 +96,12 @@ variable "student_portal_app_memory" {
 variable "desired_container_count" {
   description = "The number of desired containers for the ECS service"
   default     = 2
+}
+
+# --- SENSITIVE DATA ---
+# This block fixes the "Reference to undeclared input variable" errors
+variable "db_password" {
+  description = "The master password for the RDS database"
+  type        = string
+  sensitive   = true
 }

@@ -1,6 +1,6 @@
 # This pulls the name directly from the resource that was built using your variables
 output "ecr_repository_name" {
-  value = aws_ecr_repository.student_portal_app.name
+  value = aws_ecr_repository.main.name
 }
 
 output "ecs_cluster_name" {

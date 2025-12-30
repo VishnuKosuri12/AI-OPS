@@ -14,11 +14,20 @@ data "aws_iam_policy_document" "github_oidc_trust" {
       type        = "Federated"
       identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
+    
+    # Check 1: Ensure the request is coming from your specific REPO
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      # REPLACE WITH YOUR ACTUAL REPO PATH
-      values   = ["repo:DELL/Advance-devops-bootcamp:*"]
+      # FIX: Replace 'YOUR_GITHUB_USER' with your actual GitHub username (e.g., vishnukosuri)
+      values   = ["repo:VishnuKosuri12/AI-OPS:*"]
+    }
+
+    # Check 2: Ensure the request is intended for AWS (The Audience)
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
     }
   }
 }
@@ -71,13 +80,11 @@ resource "aws_iam_role_policy" "ecs_secrets_policy" {
       {
         Effect   = "Allow"
         Action   = ["secretsmanager:GetSecretValue"]
-        # Pulls the ARN from your rds.tf
         Resource = [aws_secretsmanager_secret.db_link.arn]
       },
       {
         Effect   = "Allow"
         Action   = ["kms:Decrypt"]
-        # Pulls the ARN from your kms.tf
         Resource = [aws_kms_key.rds_kms.arn]
       }
     ]
