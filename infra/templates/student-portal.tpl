@@ -20,15 +20,16 @@
         "appProtocol": "http"
       }
     ],
- 
     "environment": [
       {
         "name": "ENV",
         "value": "${environment}"
-      },
+      }
+    ],
+    "secrets": [
       {
-        "name": "DB_LINK",
-        "value": "${db_link}"
+        "name": "DATABASE_URL",
+        "valueFrom": "${db_link_arn}"
       }
     ]
   }

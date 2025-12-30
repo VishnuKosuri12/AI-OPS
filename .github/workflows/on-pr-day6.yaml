@@ -4,6 +4,12 @@ on:
   pull_request:
     branches: [ main ]
     paths: [ 'infra/**', 'src/**' ]
+  push:
+    branches: [ main ] # Added push so it deploys when PR is merged
+
+permissions:
+  id-token: write   # CRITICAL: Required for OIDC
+  contents: read    # Required to checkout code
 
 jobs:
   deploy:
@@ -16,59 +22,57 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # --- 1. OIDC AUTHENTICATION (REPLACES ACCESS KEYS) ---
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          # Use the ARN from your terraform output
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
+      # --- 2. TERRAFORM SETUP ---
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_wrapper: false # This makes it easier to capture outputs
+          terraform_wrapper: false 
 
       - name: Terraform Init
         working-directory: ${{ env.TERRAFORM_PATH }}
         run: terraform init
 
-      - name: Terraform Apply (Infrastructure First)
+      - name: Terraform Apply
         id: apply
         working-directory: ${{ env.TERRAFORM_PATH }}
-        run: terraform apply -var-file="terraform.tfvars" -auto-approve -no-color
+        # Note: We pass variables via environment to keep logs clean
+        run: terraform apply -auto-approve -no-color
+
+      # --- 3. DOCKER BUILD & PUSH ---
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and Push Docker Image
         run: |
-          # 1. Capture the Registry URL from the Login step
           REGISTRY=${{ steps.login-ecr.outputs.registry }}
           
-          # 2. Extract the REPO_NAME directly from Terraform Output
-          cd ${{ env.TERRAFORM_PATH }}
-          REPOSITORY=$(terraform output -raw ecr_repository_name)
-          cd ..
-          
-          IMAGE_TAG=latest
-          
-          echo "Targeting ECR Repo: $REPOSITORY"
-          
-          # 3. Build using the 'src' folder as context
+          # Pull outputs cleanly
+          REPOSITORY=$(terraform -chip=${{ env.TERRAFORM_PATH }} output -raw ecr_repository_name)
+          IMAGE_TAG=${{ github.sha }} # Best practice: Use Git SHA instead of 'latest'
+
           docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG ./src
           docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          
+          # Store image name for the next step
+          echo "IMAGE=$REGISTRY/$REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Deploy Application (ECS Force Update)
+      # --- 4. ECS DEPLOYMENT (THE SECURE WAY) ---
+      - name: Update ECS Service
         run: |
-          # 4. Extract Cluster and Service names from Terraform Output
-          cd ${{ env.TERRAFORM_PATH }}
-          CLUSTER=$(terraform output -raw ecs_cluster_name)
-          SERVICE=$(terraform output -raw ecs_service_name)
-          cd ..
-          
-          echo "Updating Service $SERVICE in Cluster $CLUSTER"
-          
+          CLUSTER=$(terraform -chdir=${{ env.TERRAFORM_PATH }} output -raw ecs_cluster_name)
+          SERVICE=$(terraform -chdir=${{ env.TERRAFORM_PATH }} output -raw ecs_service_name)
+
+          echo "Updating Service $SERVICE with image ${{ env.IMAGE }}"
+
           aws ecs update-service \
             --cluster $CLUSTER \
             --service $SERVICE \
@@ -77,12 +81,9 @@ jobs:
 
       - name: Wait for Service Stability
         run: |
-          cd ${{ env.TERRAFORM_PATH }}
-          CLUSTER=$(terraform output -raw ecs_cluster_name)
-          SERVICE=$(terraform output -raw ecs_service_name)
-          cd ..
+          CLUSTER=$(terraform -chdir=${{ env.TERRAFORM_PATH }} output -raw ecs_cluster_name)
+          SERVICE=$(terraform -chdir=${{ env.TERRAFORM_PATH }} output -raw ecs_service_name)
           
-          echo "Waiting for health checks to pass..."
           aws ecs wait services-stable \
             --cluster $CLUSTER \
             --services $SERVICE \

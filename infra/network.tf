@@ -1,123 +1,99 @@
-# VPC 
-
-# 10.0.0.0/16 
-# 10.0.1.0/24 -> 32-24^^2 -2 
-
-# rds  subnet
-# 10.0.1.0/24 , 10.0.2.0/24
-# prvate subnet 
-# 10.0.3.0/24 , 10.0.4.0/24
-# public subnet
-# 10.0.5.0/24, 10.0.6.0/24
-
-# vpc
+# --- VPC CONFIGURATION ---
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
+  
   tags = {
     Name = "${var.prefix}-${var.environment}-vpc"
   }
 }
 
-# 2 private subnets
-resource "aws_subnet" "private_1" {
-  # cidr_block        = "10.0.1.0/24"
-  cidr_block        = var.subnet_cidr["private_1"]
-  availability_zone = var.zone1
-  vpc_id            = aws_vpc.main.id
-
-  tags = {
-    Name = "ECS Fargate Private Subnet 1"
-  }
-}
-
-resource "aws_subnet" "private_2" {
-  # cidr_block        = "10.0.2.0/24"
-  cidr_block        = var.subnet_cidr["private_2"]
-  availability_zone = var.zone2
-  vpc_id            = aws_vpc.main.id
-
-  tags = {
-    Name = "ECS Fargate Private Subnet 2"
-  }
-}
-
-# 2 public subnets
-
+# --- PUBLIC SUBNETS (For Load Balancer) ---
 resource "aws_subnet" "public_1" {
-  # cidr_block              = "10.0.3.0/24"
   cidr_block              = var.subnet_cidr["public_1"]
   availability_zone       = var.zone1
   vpc_id                  = aws_vpc.main.id
   map_public_ip_on_launch = true
 
-  tags = {
-    Name = "ECS Fargate Public Subnet 1"
-  }
+  tags = { Name = "${var.environment}-public-1" }
 }
 
 resource "aws_subnet" "public_2" {
-  # cidr_block              = "10.0.4.0/24"
   cidr_block              = var.subnet_cidr["public_2"]
   availability_zone       = var.zone2
   vpc_id                  = aws_vpc.main.id
   map_public_ip_on_launch = true
 
-  tags = {
-    Name = "ECS Fargate Public Subnet 2"
-  }
+  tags = { Name = "${var.environment}-public-2" }
 }
-# 2 private subnet for database
-resource "aws_subnet" "rds_1" {
-  # cidr_block        = "10.0.5.0/24"
-  cidr_block        = var.subnet_cidr["db_subnet_1"]
-  availability_zone = data.aws_availability_zones.available_zones.names[0]
+
+# --- PRIVATE SUBNETS (For ECS Fargate Tasks) ---
+resource "aws_subnet" "private_1" {
+  cidr_block        = var.subnet_cidr["private_1"]
+  availability_zone = var.zone1
   vpc_id            = aws_vpc.main.id
 
-  tags = {
-    Name = "RDS Private Subnet 1"
-  }
+  tags = { Name = "${var.environment}-private-1" }
+}
+
+resource "aws_subnet" "private_2" {
+  cidr_block        = var.subnet_cidr["private_2"]
+  availability_zone = var.zone2
+  vpc_id            = aws_vpc.main.id
+
+  tags = { Name = "${var.environment}-private-2" }
+}
+
+# --- DATABASE SUBNETS (For RDS) ---
+resource "aws_subnet" "rds_1" {
+  cidr_block        = var.subnet_cidr["db_subnet_1"]
+  availability_zone = var.zone1
+  vpc_id            = aws_vpc.main.id
+
+  tags = { Name = "${var.environment}-rds-1" }
 }
 
 resource "aws_subnet" "rds_2" {
-  # cidr_block        = "10.0.6.0/24"
   cidr_block        = var.subnet_cidr["db_subnet_2"]
-  availability_zone = data.aws_availability_zones.available_zones.names[1]
+  availability_zone = var.zone2
   vpc_id            = aws_vpc.main.id
 
-  tags = {
-    Name = "RDS Private Subnet 2"
-  }
+  tags = { Name = "${var.environment}-rds-2" }
 }
 
-# internet gateway
+# --- INTERNET GATEWAY ---
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "${var.environment}-igw"
-  }
+  tags = { Name = "${var.environment}-igw" }
 }
 
-# 2 elasetic ip
-# Elastic IPs for NAT Gateways
+# --- NAT GATEWAYS (For Private Outbound Traffic) ---
 resource "aws_eip" "nat_1" {
   depends_on = [aws_internet_gateway.main]
-  tags = {
-    Name = "NAT Gateway EIP 1"
-  }
+  tags       = { Name = "nat-eip-1" }
 }
 
 resource "aws_eip" "nat_2" {
   depends_on = [aws_internet_gateway.main]
-  tags = {
-    Name = "NAT Gateway EIP 2"
-  }
+  tags       = { Name = "nat-eip-2" }
 }
 
-# route table for public subnet
-resource "aws_route_table" "public_1" {
+resource "aws_nat_gateway" "nat_1" {
+  allocation_id = aws_eip.nat_1.id
+  subnet_id     = aws_subnet.public_1.id
+  tags          = { Name = "nat-gw-1" }
+}
+
+resource "aws_nat_gateway" "nat_2" {
+  allocation_id = aws_eip.nat_2.id
+  subnet_id     = aws_subnet.public_2.id
+  tags          = { Name = "nat-gw-2" }
+}
+
+# --- ROUTE TABLES: PUBLIC ---
+resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
   route {
@@ -125,36 +101,20 @@ resource "aws_route_table" "public_1" {
     gateway_id = aws_internet_gateway.main.id
   }
 
-  tags = {
-    Name = "public Route Table 1"
-  }
+  tags = { Name = "public-rt" }
 }
 
-resource "aws_route_table" "public_2" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "public Route Table 2"
-  }
-}
-
-# route for public subnet
 resource "aws_route_table_association" "public_1" {
   subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.public_1.id
+  route_table_id = aws_route_table.public.id
 }
 
 resource "aws_route_table_association" "public_2" {
   subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public_2.id
+  route_table_id = aws_route_table.public.id
 }
 
-# route table for private subnet
+# --- ROUTE TABLES: PRIVATE (One per AZ for NAT redundancy) ---
 resource "aws_route_table" "private_1" {
   vpc_id = aws_vpc.main.id
 
@@ -163,9 +123,7 @@ resource "aws_route_table" "private_1" {
     nat_gateway_id = aws_nat_gateway.nat_1.id
   }
 
-  tags = {
-    Name = "Private Route Table 1"
-  }
+  tags = { Name = "private-rt-1" }
 }
 
 resource "aws_route_table" "private_2" {
@@ -176,12 +134,10 @@ resource "aws_route_table" "private_2" {
     nat_gateway_id = aws_nat_gateway.nat_2.id
   }
 
-  tags = {
-    Name = "Private Route Table 2"
-  }
+  tags = { Name = "private-rt-2" }
 }
 
-# route table association for private subnet
+# ECS Private Subnet Associations
 resource "aws_route_table_association" "private_1" {
   subnet_id      = aws_subnet.private_1.id
   route_table_id = aws_route_table.private_1.id
@@ -192,25 +148,13 @@ resource "aws_route_table_association" "private_2" {
   route_table_id = aws_route_table.private_2.id
 }
 
-# nat gateway
-# nat gateway 2 if them
-
-resource "aws_nat_gateway" "nat_1" {
-  subnet_id     = aws_subnet.public_1.id
-  allocation_id = aws_eip.nat_1.id
-
-  tags = {
-    Name = "NAT Gateway 1"
-  }
+# RDS Private Subnet Associations
+resource "aws_route_table_association" "rds_1" {
+  subnet_id      = aws_subnet.rds_1.id
+  route_table_id = aws_route_table.private_1.id
 }
 
-resource "aws_nat_gateway" "nat_2" {
-  subnet_id     = aws_subnet.public_2.id
-  allocation_id = aws_eip.nat_2.id
-
-  tags = {
-    Name = "NAT Gateway 2"
-  }
+resource "aws_route_table_association" "rds_2" {
+  subnet_id      = aws_subnet.rds_2.id
+  route_table_id = aws_route_table.private_2.id
 }
-
-# SG ##  rds <- 5432 -> ecs <- 8000 -> lb <- 80/443 -> internet

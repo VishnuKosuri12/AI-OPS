@@ -1,15 +1,16 @@
-# 1. ADDING THE LOCALS BLOCK: This maps your variables to the template placeholders
+# 1. LOCALS BLOCK: Maps Terraform resources to Template placeholders
 locals {
   student_portal_services_vars = {
     container_name                = var.container_name
-    # Replace 'aws_ecr_repository.main' with your actual ECR resource name
-    aws_ecr_repository            = aws_ecr_repository.main.repository_url 
+    # Points to ecr.tf (resource "aws_ecr_repository" "main")
+    aws_ecr_repository            = aws_ecr_repository.main.repository_url
     tag                           = var.tag
-    # Replace 'aws_cloudwatch_log_group.main' with your actual Log Group resource name
-    aws_cloudwatch_log_group_name = aws_cloudwatch_log_group.main.name
+    # FIXED: Points to cloudwatch.tf (resource "aws_cloudwatch_log_group" "ecs")
+    aws_cloudwatch_log_group_name = aws_cloudwatch_log_group.ecs.name
     environment                   = var.environment
-    # Replace 'aws_db_instance.default' with your actual RDS resource name
-    db_link                       = aws_db_instance.default.address
+    container_port                = 8000
+    # Points to rds.tf (resource "aws_secretsmanager_secret" "db_link")
+    db_link_arn                   = aws_secretsmanager_secret.db_link.arn
   }
 }
 
@@ -23,7 +24,8 @@ resource "aws_security_group" "ecs" {
     protocol        = "tcp"
     from_port       = 8000
     to_port         = 8000
-    security_groups = [aws_security_group.lb.id]
+    # Ensure this matches your alb.tf security group resource name
+    security_groups = [aws_security_group.lb.id] 
   }
 
   egress {
@@ -41,9 +43,7 @@ resource "aws_ecs_cluster" "main" {
 
 # JSON Template Rendering
 data "template_file" "services" {
-  # FIXED: Pointing to student-portan.tpl to match your filename
-  template = file("${path.module}/templates/student-portan.tpl")
-  # FIXED: Using singular 'portal' to match the locals block above
+  template = file("${path.module}/templates/student-portal.tpl")
   vars     = local.student_portal_services_vars
 }
 
@@ -52,6 +52,7 @@ resource "aws_ecs_task_definition" "services" {
   family                   = "${var.environment}-${var.app_name}"
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  task_role_arn            = aws_iam_role.ecs_task_execution_role.arn
   cpu                      = var.student_portal_app_cpu
   memory                   = var.student_portal_app_memory
   requires_compatibilities = ["FARGATE"]
@@ -65,12 +66,13 @@ resource "aws_ecs_task_definition" "services" {
 
 # ECS Service
 resource "aws_ecs_service" "flask_app_service" {
-  name                        = "${var.environment}-${var.app_name}-service"
-  cluster                     = aws_ecs_cluster.main.id
-  task_definition             = aws_ecs_task_definition.services.arn
-  desired_count               = var.desired_container_count
-  deployment_maximum_percent  = 250
-  launch_type                 = "FARGATE"
+  name                                = "${var.environment}-${var.app_name}-service"
+  cluster                             = aws_ecs_cluster.main.id
+  task_definition                     = aws_ecs_task_definition.services.arn
+  desired_count                       = var.desired_container_count
+  deployment_maximum_percent          = 250
+  launch_type                         = "FARGATE"
+  health_check_grace_period_seconds   = 60
 
   network_configuration {
     security_groups  = [aws_security_group.ecs.id]
@@ -80,12 +82,10 @@ resource "aws_ecs_service" "flask_app_service" {
 
   load_balancer {
     target_group_arn = aws_lb_target_group.alb.arn
-    container_name   = var.container_name # FIXED: Matching the name used in Task Def
+    container_name   = var.container_name
     container_port   = 8000
   }
 
-  tags = {
-    Environment = var.environment
-    Application = "flask-app"
-  }
+  # Ensure the listener exists before the service tries to register with the TG
+  depends_on = [aws_lb_listener.http] 
 }
