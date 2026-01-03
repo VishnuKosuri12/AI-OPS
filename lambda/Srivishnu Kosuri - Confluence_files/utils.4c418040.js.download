@@ -1,0 +1,2 @@
+(0,globalThis.parcelRequired477.register)("h03W7",function(e,r){e.exports.convertSourceProductToProductType=function(e,r){switch(e){case"townsquare":if("goal"===r)return"GOAL";if("teams"===r)return"TEAMS";if("home"===r)return"HOME";return"TOWNSQUARE";case"confluence":return"CONFLUENCE";case"rovoExtension":return"ROVO_EXTENSION";default:return"UNKNOWN"}}});
+//# sourceMappingURL=utils.4c418040.js.map

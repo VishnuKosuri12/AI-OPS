@@ -1,0 +1,139 @@
+function e(e){return e&&e.__esModule?e.default:e}var t=globalThis.parcelRequired477,n=t.register;n("8VYSW",function(e,n){var i=t("1c598");let r=new Map,o=e=>"CAPABILITY_ADVANCED"===e?"capabilityAdvanced":"capabilityStandard";e.exports.transformPreFilteredExtensions=e=>{let n=(e||[]).map(e=>e.id).join(",");if((0,t("dh538").fg)("memoize_prefiltered_extensions")&&r.has(n))return r.get(n);let s=(e||[]).flatMap(e=>e&&e.environmentKey?[{id:e.id,appId:e.appId,key:e.key,environmentId:e.environmentId,environmentType:e.environmentType===i.ExtensionEnvironment.DEVELOPMENT||e.environmentType===i.ExtensionEnvironment.STAGING||e.environmentType===i.ExtensionEnvironment.PRODUCTION?e.environmentType:i.ExtensionEnvironment.DEVELOPMENT,environmentKey:e.environmentKey,properties:e.properties.reduce((e,t)=>{if(!t.value||!t.key)return e;try{let n=JSON.parse(t.value);e[t.key]=n}catch(n){e[t.key]=t.value}return e},{}),license:e.license?{...e.license,capabilitySet:o(e.license.capabilitySet)}:null,userAccess:e.userAccess?{hasAccess:e.userAccess.hasAccess??!1,enabled:e.userAccess.enabled??!1}:null,type:e.type,installationId:e.installationId,appVersion:e.appVersion??void 0,consentUrl:e.consentUrl??void 0,migrationKey:e.migrationKey??void 0,egress:e.egress?.flatMap(e=>e.type&&e.addresses?[{type:e.type,addresses:e.addresses?.flatMap(e=>e??[]),category:e.category??void 0,inScopeEUD:e.inScopeEUD??void 0}]:[])??void 0,scopes:e.scopes??void 0,installationConfig:e.installationConfig?.flatMap(e=>e?.key&&null!==e.value?[{key:e.key,value:e.value}]:[])??void 0,dataClassificationPolicyDecision:{status:"APP_ACCESS_RULES"===e.hiddenBy?"BLOCKED":"ALLOWED"}}]:[]);return(0,t("dh538").fg)("memoize_prefiltered_extensions")&&r.set(n,s),s}}),n("7zIsq",function(e,n){var i=t("42omo"),r=t("7TH2w");let o=(e,n,i,r,o,s,a,c=[e])=>({variables:{cloudId:e,context:n,includeHidden:s??!1,types:r,locale:o},...a,client:i,errorPolicy:"all",context:{headers:{"atl-attribution":(0,t("1Igmn").createAtlAttributionHeader)(c.sort().join())},allowOnExternalPage:!!t("c6GJD").default.getExperimentValue("confluence_cgraphql_client_for_forge_extensions","isEnabled",!1)||void 0}}),s=({loading:e,data:n})=>{let i=n?.confluence_forgeExtensionsByType||[];return!e&&i.length>0?(0,t("8VYSW").transformPreFilteredExtensions)(i):null};e.exports.createUsePrefilteredExtensionListQueryOptions=o,e.exports.usePrefilteredExtensionList=({cloudId:e,context:n,includeHidden:a,locale:c,types:l,client:d,queryOptions:p})=>{let u=o(e,n,d,l,c,a,p),{error:E,loading:y,data:g}=(0,t("xQxzY").useQuery)(t("39Ajm").FetchPreFilteredForgeAppsQuery,u),v=s({loading:y,data:g}),{page:x}=(0,t("5U2YR").useMetricsContext)(),{createAnalyticsEvent:f}=(0,t("inPa6").useAnalyticsEvents)();return(0,i.useEffect)(()=>{v&&f({eventType:r.OPERATIONAL_EVENT_TYPE,data:{action:"succeeded",actionSubject:"forge.ui.webClient",source:x,tags:["forge"],attributes:{target:"usePrefilteredExtensionList"}}}).fire(t("3Spjc").FORGE_UI_ANALYTICS_CHANNEL)},[v,x,f]),(0,i.useEffect)(()=>{if(!v&&E&&E.graphQLErrors.length>0){let e=E.graphQLErrors.find(e=>(0,t("grQpA").isGQLUnderlyingServiceError)(e)||(0,t("grQpA").isGQLGatewayError)(e));f({eventType:r.OPERATIONAL_EVENT_TYPE,data:{action:"failed",actionSubject:"forge.ui.webClient",source:x,tags:["forge"],attributes:{target:"usePrefilteredExtensionList",errorName:e?(0,t("grQpA").isGQLUnderlyingServiceError)(e)?"componentApi":"componentGraphQL":"uncaught"}}}).fire(t("3Spjc").FORGE_UI_ANALYTICS_CHANNEL)}},[v,E,x,f]),{error:E,extensions:v||[],loading:y}},e.exports.getPrefilteredExtensionsGQLResult=s}),n("grQpA",function(e,t){var n,i=((n={}).Container="CONTAINER",n.DataClassificationTag="DATA_CLASSIFICATION_TAG",n.ExtensionType="EXTENSION_TYPE",n.PrincipalType="PRINCIPAL_TYPE",n.AppIdEnvironmentId="APP_ID_ENVIRONMENT_ID",n);e.exports.GQLExtensionContextsFilterType=i,e.exports.isGQLGatewayError=e=>e.extensions&&e.extensions.errorSource&&"GRAPHQL_GATEWAY"===e.extensions.errorSource,e.exports.isGQLUnderlyingServiceError=e=>e.extensions&&e.extensions.errorSource&&"UNDERLYING_SERVICE"===e.extensions.errorSource}),n("5U2YR",function(n,i){var r=t("42omo");let o=(0,r.createContext)({environment:void 0,product:"",page:""});n.exports.MetricsContext=o,n.exports.MetricsContextProvider=({value:n,children:i})=>{let s=(0,r.useContext)(t("jIiuI").EnvironmentContext),{product:a,page:c,environment:l}=n,d=(0,t("hQK66").useMemoOne)(()=>({environment:l??s,product:a,page:c}),[c,l,s,a]);return e(r).createElement(o.Provider,{value:d},i)},n.exports.useMetricsContext=()=>(0,r.useContext)(o)}),n("jIiuI",function(e,n){var i=t("42omo"),r=t("1c598");let o=(0,i.createContext)(r.ProductEnvironment.PRODUCTION);e.exports.EnvironmentContext=o}),n("39Ajm",function(e,n){let i=e=>`[
+    ${e.map(e=>`"${e}"`).join(", ")}
+  ]`,r=(0,t("eSUdr").default)`query FetchPreFilteredForgeAppsQuery($cloudId:ID!$context:ConfluenceExtensionRenderingContextInput$includeHidden:Boolean$locale:String$types:[String]){confluence_forgeExtensionsByType(cloudId:$cloudId context:$context includeHidden:$includeHidden locale:$locale types:$types){id appId appVersion appOwner environmentId environmentType environmentKey consentUrl migrationKey userAccess{enabled hasAccess}key properties{key value}egress{addresses category type inScopeEUD}scopes license{active capabilitySet billingPeriod ccpEntitlementId ccpEntitlementSlug isEvaluation subscriptionEndDate trialEndDate type}type installationId hiddenBy}}`;e.exports.getExtensionListQueryOld=(e,n,r)=>{let o=n?.map(e=>`"${e}"`)||["$type"],s=(0,t("dh538").fg)("platform-forge-ui-useraccess-in-extension-query")?`userAccess {
+    enabled
+    hasAccess
+  }`:"",a=`
+  query forge_ui_extensionList($contextIds: [ID!]!${n?"":", $type: String!"}, $locale: String) {
+    extensionContexts(contextIds: $contextIds) {
+      id
+      ${o.map(t=>`
+        extensionsByType(type: ${t}, locale: $locale ) {
+          id
+          appId
+          key
+          ${e?`appOwner {
+            name
+          }`:""}
+          environmentId
+          environmentType
+          environmentKey
+          properties
+          license {
+            active
+            type
+            supportEntitlementNumber
+            trialEndDate
+            subscriptionEndDate
+            isEvaluation
+            billingPeriod
+            ccpEntitlementId
+            ccpEntitlementSlug
+						capabilitySet
+            modes
+          }
+          ${s}
+          type
+          appVersion
+          installationId
+          migrationKey
+					installationConfig {
+						key
+						value
+					}
+          egress {
+            type
+            addresses
+						category
+						inScopeEUD
+          }
+					scopes
+					consentUrl
+					currentUserConsent {
+						user {
+							aaid
+						}
+						appEnvironmentVersion {
+							id
+						}
+						consentedAt
+					}
+					requiresUserConsent
+          ${r&&r.length>0?`
+                dataClassificationPolicyDecision(input: {
+                  dataClassificationTags: ${i(r)}
+                }) {
+                  status
+                }
+              `:""}
+        }`).join("")}
+    }
+  }`;return(0,t("eSUdr").default)`${a}`},e.exports.getExtensionListQuery=(e,n)=>{let r=(0,t("dh538").fg)("platform-forge-ui-useraccess-in-extension-query")?`userAccess {
+    enabled
+    hasAccess
+  }`:"",o=`
+  query forge_ui_extensionList($contextIds: [ID!]!, $filter: [ExtensionContextsFilter!]!, $locale: String ) {
+    extensionContexts(contextIds: $contextIds) {
+      id
+      extensions(filter: $filter, locale: $locale) @optIn(to: "Access-Narrowing") {
+        id
+        appId
+        key
+        ${e?`appOwner {
+          name
+        }`:""}
+        environmentId
+        environmentType
+        environmentKey
+        properties
+        license {
+          active
+          type
+          supportEntitlementNumber
+          trialEndDate
+          subscriptionEndDate
+          isEvaluation
+          billingPeriod
+          ccpEntitlementId
+          ccpEntitlementSlug
+					capabilitySet
+          modes
+        }
+        ${r}
+        type
+        appVersion
+        installationId
+        migrationKey
+				installationConfig {
+					key
+					value
+				}
+        egress {
+          type
+          addresses
+					category
+					inScopeEUD
+        }
+				scopes
+				consentUrl
+				currentUserConsent {
+					user {
+						aaid
+					}
+					appEnvironmentVersion {
+						id
+					}
+					consentedAt
+				}
+				requiresUserConsent
+        ${n&&n.length>0?`
+              dataClassificationPolicyDecision(input: {
+                dataClassificationTags: ${i(n)}
+              }) {
+                status
+              }
+            `:""}
+      },
+    }
+  }`;return(0,t("eSUdr").default)`${o}`},e.exports.FetchPreFilteredForgeAppsQuery=r}),n("3Spjc",function(n,i){var r=t("42omo"),o=t("7TH2w");let s="forge-ui",a=e=>t=>{switch(t.eventType){case o.UI_EVENT_TYPE:Promise.resolve(e).then(e=>e.sendUIEvent(t));break;case o.OPERATIONAL_EVENT_TYPE:Promise.resolve(e).then(e=>e.sendOperationalEvent(t));break;case o.TRACK_EVENT_TYPE:Promise.resolve(e).then(e=>e.sendTrackEvent(t));break;case o.SCREEN_EVENT_TYPE:Promise.resolve(e).then(e=>e.sendScreenEvent(t))}};n.exports.FORGE_UI_ANALYTICS_CHANNEL=s,n.exports.sendEvent=a,n.exports.default=({children:n,client:i,commonAttributes:o={}})=>e(r).createElement(t("kDuN4").default,{onEvent:e=>{let{eventType:t,data:n}=e.payload,{action:r,actionSubject:s,actionSubjectId:c,attributes:l,tags:d,source:p}=n,u=(e.context.find(e=>e&&e.forgeUIAnalyticsContext)??{}).forgeUIAnalyticsContext??{},E=p??u.source??"unknown",y={action:r,actionSubject:s,actionSubjectId:c,...u,source:E,attributes:{...o,...e.context.reduce((e,t)=>{let n=t&&t.forgeUIAttributes&&"object"==typeof t.forgeUIAttributes?t.forgeUIAttributes:{};return{...e,...n}},{}),...l},tags:d};a(i)({eventType:t,...y})},channel:s},n)}),n("1Igmn",function(e,t){e.exports.createAtlAttributionHeader=e=>JSON.stringify({atlWorkspaceAri:e,service:"forge-ui"})});
+//# sourceMappingURL=main.a70cb0c0.js.map

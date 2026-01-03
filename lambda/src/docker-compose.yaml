@@ -1,0 +1,15 @@
+services:
+  iam-audit-tool:
+    build: .
+    image: iam-rotation-tool:v1
+    container_name: happy_new_year_container
+    volumes:
+      # This maps your Windows AWS credentials into the container
+      - ${USERPROFILE}/.aws:/root/.aws:ro
+    environment:
+      - AWS_PROFILE=default
+      - SENDER_EMAIL=srivishnukosuri94@gmail.com
+    # Keeps the container open so you can see the logs
+    stdin_open: true
+    tty: truels
+    
