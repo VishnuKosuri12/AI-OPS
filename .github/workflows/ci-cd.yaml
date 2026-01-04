@@ -9,7 +9,7 @@ jobs:
   deploy-and-verify:
     runs-on: ubuntu-latest
     outputs:
-      bucket_name: "vishnu-pooja-storage-2025" # Hardcoded to match your project
+      bucket_name: "vishnu-pooja-storage-2025" 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -27,6 +27,7 @@ jobs:
       - name: Terraform Init & Apply
         working-directory: ./infra
         run: |
+          # The S3 Backend in Ohio will now 'remember' your state automatically
           terraform init
           terraform apply -auto-approve
 
@@ -55,8 +56,9 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # Fixed: Using the same secret names as Job 1
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -64,7 +66,7 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build, Tag, and Push Image to ECR
-        working-directory: ./lambda/src
+        working-directory: ./src
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.registry }}
           ECR_REPOSITORY: iam-rotation-tool
@@ -79,7 +81,7 @@ jobs:
         run: |
           echo "Updating Lambda function to use the new ECR image..."
           aws lambda update-function-code \
-            --function-name vishnu_security_portal_function \
+            --function-name Happy_New_Year \
             --image-uri ${{ steps.login-ecr.registry }}/iam-rotation-tool:latest
           
-          echo "DEPLOYMENT SUCCESSFUL ðŸš€"
+          echo "DEPLOYMENT SUCCESSFUL íº€"
