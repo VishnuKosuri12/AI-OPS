@@ -1,0 +1,85 @@
+name: DevOps Portal End-to-End Pipeline
+
+on:
+  push:
+    branches: [ master, main ]
+
+jobs:
+  # JOB 1: Deploy Infrastructure and Verify Health
+  deploy-and-verify:
+    runs-on: ubuntu-latest
+    outputs:
+      bucket_name: "vishnu-pooja-storage-2025" # Hardcoded to match your project
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (The Handshake)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform Setup
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init & Apply
+        working-directory: ./lambda/infra
+        run: |
+          terraform init
+          terraform apply -auto-approve
+
+      - name: S3 Infrastructure Health Check
+        run: |
+          echo "Step 1: Checking Bucket Presence..."
+          aws s3 ls s3://vishnu-pooja-storage-2025/
+          
+          echo "Step 2: Testing Write/Read Connectivity to Analyze/ folder..."
+          echo "check-at-${{ github.run_id }}" > health.txt
+          aws s3 cp health.txt s3://vishnu-pooja-storage-2025/Analyze/health-check.txt
+          
+          echo "Step 3: Verifying File Arrival..."
+          aws s3 ls s3://vishnu-pooja-storage-2025/Analyze/health-check.txt
+          
+          echo "S3 HEALTH CHECK: PASSED ✅"
+
+  # JOB 2: Build Docker Image and Deploy to Lambda
+  build-and-deploy-code:
+    needs: deploy-and-verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag, and Push Image to ECR
+        working-directory: ./lambda/src
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.registry }}
+          ECR_REPOSITORY: iam-rotation-tool
+          IMAGE_TAG: latest
+        run: |
+          # Build the Docker image using your Dockerfile
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          # Push it to the AWS Cloud
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Deploy Image to AWS Lambda
+        run: |
+          echo "Updating Lambda function to use the new ECR image..."
+          aws lambda update-function-code \
+            --function-name vishnu_security_portal_function \
+            --image-uri ${{ steps.login-ecr.registry }}/iam-rotation-tool:latest
+          
+          echo "DEPLOYMENT SUCCESSFUL 🚀"

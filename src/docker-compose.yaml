@@ -1,0 +1,16 @@
+services:
+  iam-audit-tool:
+    build: .
+    image: iam-rotation-tool:v1
+    container_name: happy_new_year_container
+    # IMPORTANT: Lambda RIE listens on 8080 inside; we map to 9000 outside
+    ports:
+      - "9000:8080"
+    volumes:
+      - ${USERPROFILE}/.aws:/root/.aws:ro
+    environment:
+      - AWS_PROFILE=default
+      - SENDER_EMAIL=srivishnukosuri94@gmail.com
+      - AWS_REGION=us-east-1
+    # Note: stdin_open and tty aren't strictly needed for Lambda containers
+    # as they stay alive waiting for the HTTP trigger on port 8080.
